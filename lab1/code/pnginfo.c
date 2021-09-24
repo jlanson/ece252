@@ -12,19 +12,6 @@ int is_png(U8 *buf, size_t n){
             return 1;
         }
     }
-    int startingIndex = 8;
-    int size;
-    int crc; 
-    //the following is waste for checking corrupted files
-    
-    // for(int i = 0; i < 1; i++ ){
-    //     size = (buf[startingIndex] << 8) + buf[startingIndex+3];
-    //     printf("%d", size);
-    //     make_crc_table();
-    //     crc = crc(&buf[8], 4);
-    //     printf("%d", crc);
-    //     startingIndex += size;
-    // }
 }
 
 
@@ -40,17 +27,44 @@ int main(int argc, char *argv[])
        fread(buffer+i, 1, 1, pngFile); 
     }
     
-
-    //Checks if the file is a png
     if(is_png(buffer, size) == 1){
         printf("%s: Not a PNG", argv[1] );
         return 0;
     }
-
+        //Checks for corrupted file
+    int startingIndex = 8;
+    int dataSize;
+    int expectedCrC; 
+    int chunkCrc;
+    int corrupted = 0;
+    int corruptionType = 0;
+    for (int i = 0; i < 3; i++){
+        dataSize = (buffer[startingIndex] << 24) + (buffer[startingIndex+1] << 16)+ (buffer[startingIndex+2] << 8)+ buffer[startingIndex+3];
+        expectedCrC = crc(&buffer[startingIndex + 4], dataSize+4);
+        chunkCrc = (buffer[startingIndex + 8 + dataSize] << 24)+ (buffer[startingIndex + 8 + dataSize+1] << 16)+ (buffer[startingIndex + 8 + dataSize+2] << 8)+ buffer[startingIndex + 8 + dataSize+3];
+        if(chunkCrc != expectedCrC){
+            corrupted = 1;
+            corruptionType = i;
+            break;
+        }
+        startingIndex += 8 + dataSize + 4;
+    }
+    
+    //Outputs dimensions
     unsigned int width = (buffer[16] << 24 )+ (buffer[17] << 16)+(buffer[18] << 8) + buffer[19];
     unsigned int length = (buffer[20] << 24 )+ (buffer[21] << 16)+(buffer[22] << 8) + buffer[23];
-    printf("%s: %d x %d", argv[1], width, length );
+    printf("%s: %d x %d\n", argv[1], width, length );
 
+    //Outputs if file is corrupted
+    if(corrupted == 1){
+        if (corruptionType == 0){
+            printf("IHDR: chunk CRC error computed %x, expected %x\n", expectedCrC, chunkCrc );
+        }else if(corruptionType == 1){
+            printf("IDAT: chunk CRC error computed %x, expected %x\n", expectedCrC, chunkCrc );
+        }else if(corruptionType =2 ){
+            printf("IEND: chunk CRC error computed %x, expected %x\n", expectedCrC, chunkCrc );
+        }
+    }
     fclose(pngFile);
 }
 
