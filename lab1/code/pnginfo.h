@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <string.h>
-#include "../starter/png_util/crc.h"
+#include "crc.h"
 /******************************************************************************
  * DEFINED MACROS 
  *****************************************************************************/
