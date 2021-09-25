@@ -3,95 +3,176 @@
 #pragma once 
 /*takes in a directory and searches everywhere under for valid png files*/
 
-int main(int argc, char *argv[]){
 
-    //take in directory name
+int findpng( char *path) {
+     //take in directory name
     DIR *p_dir;
     struct dirent *p_dirent;
     char str[64];
-    char *arg ;
+    char arg[sizeof(path)] ;
+
+    strcpy(arg,path);
 
     int i;
     char *ptr;
     struct stat buf;
 
-    if (argc == 1) {
-        fprintf(stderr, "Usage: %s <directory name>\n", argv[0]);
-        exit(1);
-    }
+    
 
-    if ((p_dir = opendir(argv[1])) == NULL) {
-        sprintf(str, "opendir(%s)", argv[1]);
+    if ((p_dir = opendir(path)) == NULL) {
+        sprintf(str, "opendir(%s)", path);
         perror(str);
         exit(2);
     }
 
+    int foundPNG = 0;
 
-    //printf("%s\n",argv[1]);
+    
+    int counter = 0;
+
+    //printf("%s\n",path);
     //for everuyfile under directory, test if it is a regular type or a direcrtory
 
     while ((p_dirent = readdir(p_dir)) != NULL) {
         char *str_path = p_dirent->d_name;  /* relative path name! */
 
-        arg = NULL;
+        counter ++;
+        printf("%d\n", counter);
+        
 
-        strcat(arg,argv[1]);
-        //char *name = strcat(arg,str_path);
+        FILE* test = fopen("test.txt", "w+");
+        fprintf(test, "%s", path);
+        fprintf(test,"%s", "/");
+        fprintf(test, "%s", str_path);
+
 
         //needs to be able to take absolute path
 
+        fseek(test, 0L, SEEK_END);
+        int size = ftell(test);
+        fseek(test, 0L, SEEK_SET);
+
+        char pathName [size];
+
+        memset(pathName, '\0', size);
+
+        fread(pathName, sizeof(char), size, test);
+
+        pathName[size] = '\0';
+
+        printf("%s\n", pathName );
+
+        //printf("%s\n",pathName);
+
         if (str_path == NULL) {
             fprintf(stderr,"Null pointer found!"); 
+
+            printf("im in the exit 3" );
             exit(3);
         } else {
             //str_path has the name of the path
-
-            // argv[] = "c:users/angel"
-            // strname= "info.png"
-
-
-            // buf= "c:users/angel/info.png"
-
-            char *symlinkpath = strcat(arg,str_path);
+printf("im in the aftyer exit 3 else" );
             char actualpath [PATH_MAX+1];
 
-            
-
-
-            ptr = realpath(symlinkpath, actualpath);
-            printf("%s\n",symlinkpath);
-            printf("%s\n",actualpath);
+            ptr = realpath(pathName, actualpath);
         
-            // //printf("%s: ", str_path);
+            //printf("%s: ", str_path);
             if (lstat(ptr, &buf) < 0) {
-                
-                
                 perror("lstat error");
-
-                
                 continue;
             }   
 
             if (S_ISREG(buf.st_mode)){
                 //run is_png on this
-                printf("hello");
+                //printf("hello");
+
+                FILE* pngFile = fopen(pathName, "rb+");
+                fseek(pngFile, 0L, SEEK_END);
+                int size = ftell(pngFile);
+                fseek(pngFile, 0L, SEEK_SET);
+                U8 buffer[size];
+                for(int i = 0; i < size; i++) {
+                fread(buffer+i, 1, 1, pngFile); 
+                }
+                printf("REGULAR %s\n", pathName );
+                
+                if(is_png(buffer, size) == 0){
+                    printf("%s\n", pathName );
+
+                    foundPNG = 1;
+                }
+
+                fclose(pngFile);
             }
             else if (S_ISDIR(buf.st_mode)){
                 //this is case of directory
                 //recursive? 
-                 printf("this is a directory");
-                printf("%s\n",ptr);
+                // printf("this is a directory");
+                // printf("%s\n",pathName);
+                //printf("%s\n", pathName );
+                if (strcmp(str_path, "..") != 0 && strcmp(str_path, ".") != 0){
+                    printf("here's the recursion");
+                    foundPNG = findpng(pathName);
+                }
+                
+                
+            }else{
+                printf("im in the else");
+                continue;
             }
 
-            
-
+            printf("endf of eleses" );
         }
+
+printf("bitch");
+        fclose(test);
+
+        
+
     }
+
 
     if ( closedir(p_dir) != 0 ) {
         perror("closedir");
         exit(3);
     }
 
+    printf("end of func" );
+
+    return foundPNG;
+
 
 }
+
+
+int main(int argc, char *argv[]){
+
+    if (argc == 1) {
+        fprintf(stderr, "Usage: %s <directory name>\n", argv[0]);
+        exit(1);
+    }
+
+   if (findpng(argv[1]) == 0){
+       printf("%s: No PNG file found", argv[1]);
+   }
+
+   printf("%d\n",findpng(argv[1]));
+
+
+}
+
+
+int is_png(U8 *buf, size_t n){
+    if (n<8){
+        return 1;
+    }
+    unsigned int headerCheck[8] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+    for(int i = 0; i < 8; i++){
+        if(buf[i] != headerCheck[i]){
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
